@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Architetto delle Piramidi</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            line-height: 1.6;
+            margin: 20px;
+            background-color: #f4f1de; /* Sabbia chiaro */
+            color: #3a2a1a; /* Marrone scuro */
+        }
+        .container {
+            max-width: 900px;
+            margin: auto;
+            background-color: #fff;
+            padding: 25px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        h1, h2 {
+            color: #8a6d3b; /* Oro scuro */
+            border-bottom: 2px solid #eee8d5; /* Sabbia più chiaro */
+            padding-bottom: 5px;
+        }
+        .section {
+            margin-bottom: 25px;
+            padding: 15px;
+            border: 1px solid #eee8d5;
+            border-radius: 5px;
+            background-color: #faf8f0;
+        }
+        .resource-display span, .pyramid-status span {
+            font-weight: bold;
+            margin-left: 5px;
+            color: #5a4a2a;
+        }
+        label {
+            margin-right: 10px;
+        }
+        input[type="number"] {
+            width: 100px;
+            padding: 5px;
+            margin-right: 15px;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+        }
+        button {
+            padding: 10px 15px;
+            background-color: #8a6d3b;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+            transition: background-color 0.3s ease;
+        }
+        button:hover {
+            background-color: #6a502d;
+        }
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        #pyramid-levels-display ul {
+            list-style: none;
+            padding: 0;
+        }
+        #pyramid-levels-display li {
+            background-color: #eee8d5;
+            margin-bottom: 8px;
+            padding: 10px;
+            border-radius: 4px;
+            border-left: 5px solid #8a6d3b;
+        }
+        #log {
+            margin-top: 15px;
+            padding: 10px;
+            border: 1px dashed #ccc;
+            height: 100px;
+            overflow-y: scroll;
+            background-color: #f9f9f9;
+            font-size: 0.9em;
+            color: #555;
+        }
+        select {
+            padding: 8px;
+            margin-right: 10px;
+            border-radius: 4px;
+        }
+        .room-item, .slab-item {
+            background-color: #e9e4d1;
+            padding: 5px 10px;
+            border-radius: 3px;
+            margin-bottom: 5px;
+            display: flex;
+            justify-content: space-between;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Architetto delle Piramidi</h1>
+
+        <div class="section resource-setup">
+            <h2>Imposta Risorse Iniziali</h2>
+            <label for="start-gold">Oro:</label>
+            <input type="number" id="start-gold" value="50000">
+            <label for="start-xp">P.X.:</label>
+            <input type="number" id="start-xp" value="20000">
+            <label for="start-souls">Anime:</label>
+            <input type="number" id="start-souls" value="0">
+            <button id="set-resources-btn">Imposta</button>
+        </div>
+
+        <div class="section resource-display">
+            <h2>Risorse Attuali</h2>
+            Oro: <span id="current-gold">0</span> |
+            P.X.: <span id="current-xp">0</span> |
+            Anime: <span id="current-souls">0</span> |
+            PP: <span id="current-pp">10</span> / <span id="max-pp">10</span>
+        </div>
+
+        <div class="section pyramid-controls">
+            <h2>Controlli Piramide</h2>
+            <button id="add-level-btn">Aggiungi Livello Esterno</button>
+            <hr>
+            <h3>Aggiungi Stanza Interna</h3>
+            <label for="room-level-select">Livello:</label>
+            <select id="room-level-select">
+                <!-- Opzioni livelli verranno aggiunte dinamicamente -->
+            </select>
+            <label for="room-type-select">Tipo Stanza:</label>
+            <select id="room-type-select">
+                <option value="altare_supremo">Altare Supremo (Unico, L5+, 20k+ O, 0 PX)</option>
+                <option value="tortura">Sala Torture (10k O, 4k PX)</option>
+                <option value="sacrifici">Altare Sacrifici (10k O, 4k PX)</option>
+                <option value="angolo1">Stanza Angolo I (10k O, 4k PX)</option>
+                <option value="laboratorio">Laboratorio Potere Minore (10k O, 4k PX)</option>
+                <option value="creazione">Sala Enorme Creazione (4 Stanze, 10k O, 4k PX)</option>
+                 <!-- Aggiungere qui altre stanze base o da Libri II -->
+            </select>
+            <button id="add-room-btn">Aggiungi Stanza</button>
+             <hr>
+            <h3>Lastrifica Lato Esterno</h3>
+             <label for="slab-level-select">Livello:</label>
+            <select id="slab-level-select">
+                 <!-- Opzioni livelli verranno aggiunte dinamicamente -->
+            </select>
+            <label for="slab-side-select">Lato (Sfera):</label>
+            <select id="slab-side-select">
+                <option value="materia">Materia</option>
+                <option value="energia">Energia</option>
+                <option value="pensiero">Pensiero</option>
+                <option value="tempo">Tempo</option>
+            </select>
+             <button id="add-slab-btn">Lastrifica Livello Lato (10k PX, 2k Anime)</button>
+        </div>
+
+        <div class="section pyramid-status">
+            <h2>Stato della Piramide</h2>
+            Livelli Costruiti: <span id="levels-built">1</span> (Solo Punta)
+            <div id="pyramid-levels-display">
+                <h3>Dettaglio Livelli</h3>
+                <ul>
+                    <li>Livello 1: Punta (Serbatoio 10 PP base)</li>
+                    <!-- Altri livelli verranno aggiunti qui -->
+                </ul>
+                 <h3>Stanze Costruite</h3>
+                 <ul id="rooms-list">
+                     <!-- Stanze verranno aggiunte qui -->
+                 </ul>
+                 <h3>Lati Lastrificati</h3>
+                 <ul id="slabs-list">
+                      <!-- Info lastre verranno aggiunte qui -->
+                 </ul>
+                 PP Bonus Mensile da Lastre: <span id="slab-pp-bonus">0</span>
+            </div>
+        </div>
+
+         <div class="section monthly-income">
+            <h2>Rendita Mensile</h2>
+            <button id="calculate-income-btn">Calcola Rendita Mensile</button>
+            <p><small>(Nota: Rendite Oro/Anime/PX specifiche richiedono implementazione dettagliata o input manuale basato sulle regole esatte e presenza Altare/Stanze)</small></p>
+         </div>
+
+        <div class="section log-section">
+            <h2>Log Operazioni</h2>
+            <div id="log"></div>
+        </div>
+    </div>
+
+    <script>
+        // --- Costanti di Gioco ---
+        const BLOCK_COST_GOLD = 10000;
+        const BLOCK_COST_XP = 4000;
+        const BLOCK_PP_BONUS = 1; // Ogni blocco aggiunge 1 al max PP
+        const BASE_PP = 10;
+        const BASE_MAX_PP = 10;
+        const SLAB_COST_XP = 10000;
+        const SLAB_COST_SOULS = 2000;
+        const SLAB_PP_PER_MONTH_PER_LEVEL = 1;
+
+        const ROOM_COSTS = {
+            // Oro, PX, Anime, Spazio Richiesto (in stanze), Effetti (semplificato)
+            altare_supremo: { gold: 20000, xp: 0, souls: 0, space: 1, unique: true, minLevel: 5, name: "Altare Supremo", effects: { hasAltar: true } }, // Costo oro varia con Liv, non implementato qui
+            tortura: { gold: 10000, xp: 4000, souls: 0, space: 1, unique: false, name: "Sala delle Torture", effects: { maxPPBonus: 8 } },
+            sacrifici: { gold: 10000, xp: 4000, souls: 0, space: 1, unique: false, name: "Altare dei Sacrifici", effects: {} },
+            angolo1: { gold: 10000, xp: 4000, souls: 0, space: 1, unique: false, name: "Stanza d'Angolo I", effects: { maxPPPenalty: 4 } },
+            laboratorio: { gold: 10000, xp: 4000, souls: 0, space: 1, unique: false, name: "Laboratorio Potere Minore", effects: {} },
+            creazione: { gold: 10000, xp: 4000, souls: 0, space: 4, unique: false, name: "Sala dell'enorme Creazione", effects: {} },
+             // Aggiungere qui altre stanze con i loro costi e flag 'unique' o effetti base
+        };
+
+        // --- Stato dell'Applicazione ---
+        let resources = {
+            gold: 0,
+            xp: 0,
+            souls: 0,
+        };
+        let pyramid = {
+            currentPP: BASE_PP,
+            maxPP: BASE_MAX_PP,
+            levels: [ // Livello 1 è la punta, non ha blocchi/stanze standard
+                { level: 1, name: "Punta", blocks: 0, maxRooms: 0, builtRooms: [] }
+            ],
+            rooms: [], // Lista globale di stanze costruite {type, level}
+            slabs: {}, // { energia: highestLevel, materia: highestLevel, ... }
+            slabPPBonus: 0,
+            peakPPMaxBonus: 0, // Bonus da Sala Torture etc.
+            peakPPMaxPenalty: 0, // Malus da Stanza Angolo etc.
+        };
+
+        // --- Riferimenti DOM ---
+        const goldDisp = document.getElementById('current-gold');
+        const xpDisp = document.getElementById('current-xp');
+        const soulsDisp = document.getElementById('current-souls');
+        const ppDisp = document.getElementById('current-pp');
+        const maxPPDisp = document.getElementById('max-pp');
+        const levelsBuiltDisp = document.getElementById('levels-built');
+        const levelsDisplayUl = document.querySelector('#pyramid-levels-display ul');
+        const roomsListUl = document.getElementById('rooms-list');
+        const slabsListUl = document.getElementById('slabs-list');
+        const slabPPBonusDisp = document.getElementById('slab-pp-bonus');
+        const logDiv = document.getElementById('log');
+        const addLevelBtn = document.getElementById('add-level-btn');
+        const addRoomBtn = document.getElementById('add-room-btn');
+        const addSlabBtn = document.getElementById('add-slab-btn');
+        const setResourcesBtn = document.getElementById('set-resources-btn');
+        const calculateIncomeBtn = document.getElementById('calculate-income-btn');
+        const startGoldInput = document.getElementById('start-gold');
+        const startXpInput = document.getElementById('start-xp');
+        const startSoulsInput = document.getElementById('start-souls');
+        const roomLevelSelect = document.getElementById('room-level-select');
+        const roomTypeSelect = document.getElementById('room-type-select');
+        const slabLevelSelect = document.getElementById('slab-level-select');
+        const slabSideSelect = document.getElementById('slab-side-select');
+
+        // --- Funzioni Helper ---
+        function log(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            logDiv.innerHTML = `[${timestamp}] ${message}<br>` + logDiv.innerHTML;
+            console.log(message);
+        }
+
+        function calculateBlocksForLevel(level) {
+            if (level <= 1) return 0;
+            // Pattern: L2=4, L3=8, L4=12 -> 4 * (level - 1)
+            return 4 * (level - 1);
+        }
+
+        function calculateMaxRoomsForLevel(level) {
+            if (level <= 1) return 0;
+            // Pattern: L2=1, L3=4, L4=9 -> (level - 1)^2
+            return Math.pow(level - 1, 2);
+        }
+
+        function calculateCurrentRoomSpaceUsed(level) {
+             let spaceUsed = 0;
+             pyramid.rooms.forEach(room => {
+                 if (room.level === level) {
+                    const roomData = ROOM_COSTS[room.type];
+                    if(roomData) spaceUsed += roomData.space;
+                 }
+             });
+             return spaceUsed;
+        }
+
+        function updateResourceDisplay() {
+            goldDisp.textContent = resources.gold.toLocaleString();
+            xpDisp.textContent = resources.xp.toLocaleString();
+            soulsDisp.textContent = resources.souls.toLocaleString();
+            ppDisp.textContent = pyramid.currentPP;
+            maxPPDisp.textContent = pyramid.maxPP;
+        }
+
+        function recalculateMaxPP() {
+             let totalBlockBonus = 0;
+             pyramid.levels.forEach(level => {
+                 totalBlockBonus += (level.blocks || 0) * BLOCK_PP_BONUS;
+             });
+
+             let roomBonus = 0;
+             let roomPenalty = 0;
+             pyramid.rooms.forEach(room => {
+                const roomData = ROOM_COSTS[room.type];
+                if (roomData && roomData.effects) {
+                    roomBonus += roomData.effects.maxPPBonus || 0;
+                    roomPenalty += roomData.effects.maxPPPenalty || 0;
+                }
+             });
+
+             pyramid.maxPP = BASE_MAX_PP + totalBlockBonus + roomBonus - roomPenalty;
+             // Assicura che PP corrente non superi il nuovo max
+             if (pyramid.currentPP > pyramid.maxPP) {
+                 pyramid.currentPP = pyramid.maxPP;
+             }
+             updateResourceDisplay();
+        }
+
+        function updatePyramidDisplay() {
+            levelsBuiltDisp.textContent = pyramid.levels.length;
+            levelsDisplayUl.innerHTML = '<li>Livello 1: Punta (Serbatoio PP base)</li>'; // Reset
+            roomLevelSelect.innerHTML = ''; // Reset dropdown
+            slabLevelSelect.innerHTML = ''; // Reset dropdown
+
+            pyramid.levels.slice(1).forEach(level => { // Salta la punta
+                const maxRooms = calculateMaxRoomsForLevel(level.level);
+                const currentSpaceUsed = calculateCurrentRoomSpaceUsed(level.level);
+                const li = document.createElement('li');
+                li.textContent = `Livello ${level.level}: ${level.blocks} Blocchi. Stanze: ${currentSpaceUsed} / ${maxRooms} spazio occupato.`;
+                levelsDisplayUl.appendChild(li);
+
+                // Aggiungi opzioni ai select per stanze e lastre (solo se il livello esiste)
+                const optionRoom = document.createElement('option');
+                optionRoom.value = level.level;
+                optionRoom.textContent = `Livello ${level.level}`;
+                roomLevelSelect.appendChild(optionRoom);
+
+                const optionSlab = document.createElement('option');
+                optionSlab.value = level.level;
+                optionSlab.textContent = `Livello ${level.level}`;
+                slabLevelSelect.appendChild(optionSlab);
+            });
+
+            // Aggiorna lista stanze
+            roomsListUl.innerHTML = '';
+             pyramid.rooms.forEach((room, index) => {
+                 const roomData = ROOM_COSTS[room.type];
+                 const li = document.createElement('li');
+                 li.classList.add('room-item');
+                 li.textContent = `${roomData.name} (Liv ${room.level})`;
+                 // Aggiungere un bottone per rimuovere sarebbe utile in un'app completa
+                 roomsListUl.appendChild(li);
+             });
+
+            // Aggiorna lista lastre e bonus PP
+            slabsListUl.innerHTML = '';
+            pyramid.slabPPBonus = 0;
+            for (const side in pyramid.slabs) {
+                const maxLevel = pyramid.slabs[side];
+                 const li = document.createElement('li');
+                 li.classList.add('slab-item');
+                 li.textContent = `Lato ${side.charAt(0).toUpperCase() + side.slice(1)}: Lastrificato fino al livello ${maxLevel}`;
+                 slabsListUl.appendChild(li);
+                 pyramid.slabPPBonus += maxLevel * SLAB_PP_PER_MONTH_PER_LEVEL; // 1 PP per ogni livello lastrificato su quel lato
+            }
+             slabPPBonusDisp.textContent = pyramid.slabPPBonus;
+
+            recalculateMaxPP(); // Ricalcola max PP dopo ogni aggiornamento
+        }
+
+        // --- Funzioni Principali ---
+        function addLevel() {
+            const nextLevel = pyramid.levels.length + 1;
+            const blocksNeeded = calculateBlocksForLevel(nextLevel);
+            const costGold = blocksNeeded * BLOCK_COST_GOLD;
+            const costXP = blocksNeeded * BLOCK_COST_XP;
+
+            if (resources.gold >= costGold && resources.xp >= costXP) {
+                resources.gold -= costGold;
+                resources.xp -= costXP;
+
+                const newLevel = {
+                    level: nextLevel,
+                    blocks: blocksNeeded,
+                    maxRooms: calculateMaxRoomsForLevel(nextLevel),
+                    builtRooms: [] // Resetta builtRooms qui
+                };
+                pyramid.levels.push(newLevel);
+
+                log(`Livello ${nextLevel} aggiunto (${blocksNeeded} blocchi). Costo: ${costGold.toLocaleString()} Oro, ${costXP.toLocaleString()} P.X.`);
+                updatePyramidDisplay();
+            } else {
+                log(`Risorse insufficienti per aggiungere il livello ${nextLevel}. Necessari: ${costGold.toLocaleString()} Oro, ${costXP.toLocaleString()} P.X.`);
+            }
+        }
+
+        function addRoom() {
+            const level = parseInt(roomLevelSelect.value);
+            const roomType = roomTypeSelect.value;
+            const roomData = ROOM_COSTS[roomType];
+
+            if (!level || !roomData) {
+                log("Seleziona un livello e un tipo di stanza validi.");
+                return;
+            }
+
+            // Verifica livello minimo se presente
+            if (roomData.minLevel && level < roomData.minLevel) {
+                log(`L'Altare Supremo richiede il livello ${roomData.minLevel} o superiore.`);
+                return;
+            }
+
+            // Verifica unicità se presente
+            if (roomData.unique) {
+                const alreadyExists = pyramid.rooms.some(room => room.type === roomType);
+                if (alreadyExists) {
+                    log(`La stanza '${roomData.name}' è unica e già presente.`);
+                    return;
+                }
+            }
+
+            // Trova il livello nella piramide
+            const targetLevel = pyramid.levels.find(l => l.level === level);
+            if (!targetLevel) {
+                log(`Livello ${level} non trovato nella piramide.`);
+                return;
+            }
+
+            // Verifica spazio disponibile
+            const maxRooms = calculateMaxRoomsForLevel(level);
+            const currentSpaceUsed = calculateCurrentRoomSpaceUsed(level);
+            if (currentSpaceUsed + roomData.space > maxRooms) {
+                log(`Spazio insufficiente nel livello ${level} per aggiungere '${roomData.name}' (richiede ${roomData.space}, disponibili ${maxRooms - currentSpaceUsed}).`);
+                return;
+            }
+
+            // Verifica costi (costo oro Altare Supremo non dinamico qui)
+            let costGold = roomData.gold;
+            // Simplificazione: prendiamo il costo base per Altare Supremo
+            // if (roomType === 'altare_supremo') costGold = ... logica basata su Liv ...
+            const costXP = roomData.xp;
+            const costSouls = roomData.souls;
+
+            if (resources.gold >= costGold && resources.xp >= costXP && resources.souls >= costSouls) {
+                resources.gold -= costGold;
+                resources.xp -= costXP;
+                resources.souls -= costSouls;
+
+                pyramid.rooms.push({ type: roomType, level: level });
+                // Applica effetti (semplificato) - Ricalcolato in updatePyramidDisplay/recalculateMaxPP
+                // if (roomData.effects.maxPPBonus) pyramid.peakPPMaxBonus += roomData.effects.maxPPBonus;
+                // if (roomData.effects.maxPPPenalty) pyramid.peakPPMaxPenalty += roomData.effects.maxPPPenalty;
+
+
+                log(`Stanza '${roomData.name}' aggiunta al livello ${level}. Costo: ${costGold.toLocaleString()} O, ${costXP.toLocaleString()} PX, ${costSouls.toLocaleString()} Anime.`);
+                updatePyramidDisplay();
+            } else {
+                log(`Risorse insufficienti per aggiungere '${roomData.name}'. Necessari: ${costGold.toLocaleString()} O, ${costXP.toLocaleString()} PX, ${costSouls.toLocaleString()} Anime.`);
+            }
+        }
+
+        function addSlab() {
+            const level = parseInt(slabLevelSelect.value);
+            const side = slabSideSelect.value;
+
+             if (!level || !side) {
+                log("Seleziona un livello e un lato validi per la lastrificazione.");
+                return;
+            }
+
+            // Verifica esistenza livello
+             const targetLevel = pyramid.levels.find(l => l.level === level);
+             if (!targetLevel) {
+                 log(`Livello ${level} non trovato per la lastrificazione.`);
+                 return;
+             }
+
+             // Verifica se questo specifico livello è già lastrificato per questo lato
+             // La regola dice "Il livello due si ottiene... lastrificando i due blocchi..."
+             // Qui semplifichiamo: lastrifichiamo l'intero "livello" di un lato.
+             // Aggiorniamo solo se il nuovo livello è *superiore* a quello già lastrificato per quel lato.
+             const currentSlabLevel = pyramid.slabs[side] || 0;
+             if (level <= currentSlabLevel) {
+                 log(`Il lato ${side} è già lastrificato fino al livello ${currentSlabLevel} o superiore.`);
+                 return;
+             }
+             // Idealmente, dovresti poter lastrificare solo livelli contigui (1, poi 2, poi 3...). Questa logica non è implementata qui.
+             // Si assume che se lastrifichi il livello 3, anche 1 e 2 siano implicitamente fatti o verranno fatti.
+             // L'approccio più semplice è salvare solo il livello *massimo* lastrificato per lato.
+
+            // Verifica costi
+            if (resources.xp >= SLAB_COST_XP && resources.souls >= SLAB_COST_SOULS) {
+                 resources.xp -= SLAB_COST_XP;
+                 resources.souls -= SLAB_COST_SOULS;
+
+                 pyramid.slabs[side] = level; // Salva il livello più alto lastrificato per questo lato
+
+                 log(`Lato '${side}' lastrificato fino al livello ${level}. Costo: ${SLAB_COST_XP.toLocaleString()} PX, ${SLAB_COST_SOULS.toLocaleString()} Anime.`);
+                 updatePyramidDisplay(); // Aggiorna la lista lastre e il bonus PP mensile
+             } else {
+                 log(`Risorse insufficienti per lastrificare. Necessari: ${SLAB_COST_XP.toLocaleString()} PX, ${SLAB_COST_SOULS.toLocaleString()} Anime.`);
+             }
+        }
+
+        function calculateMonthlyIncome() {
+            // 1. PP
+            let ppGained = 1; // Dalla punta
+            ppGained += pyramid.slabPPBonus; // Dai lati lastrificati
+            pyramid.currentPP += ppGained;
+            if (pyramid.currentPP > pyramid.maxPP) {
+                pyramid.currentPP = pyramid.maxPP;
+            }
+            log(`Guadagnati ${ppGained} PP questo mese.`);
+
+            // 2. Oro (1d10 * 100 * Liv per ogni livello completo di Blocchi)
+            let goldGained = 0;
+            pyramid.levels.slice(1).forEach(level => { // Salta la punta
+                 // Simuliamo 1d10 con un valore medio (5.5) o un input utente
+                 let diceRoll = 5; // Semplificazione: valore fisso o da chiedere all'utente
+                 goldGained += diceRoll * 100 * level.level;
+            });
+             resources.gold += goldGained;
+             log(`Guadagnati (stimati) ${goldGained.toLocaleString()} Oro.`);
+
+            // 3. Anime (1d6 * 100 per ogni livello interamente occupato all'interno)
+             let soulsGained = 0;
+             pyramid.levels.slice(1).forEach(level => {
+                 const maxRooms = calculateMaxRoomsForLevel(level.level);
+                 const currentSpaceUsed = calculateCurrentRoomSpaceUsed(level.level);
+                 if (maxRooms > 0 && currentSpaceUsed >= maxRooms) { // Livello pieno
+                     let diceRoll = 3; // Semplificazione: valore fisso (media 1d6 = 3.5)
+                     soulsGained += diceRoll * 100;
+                 }
+             });
+             resources.souls += soulsGained;
+             log(`Guadagnate (stimate) ${soulsGained.toLocaleString()} Anime dai livelli pieni.`);
+
+            // 4. Esperienza (con Altare Supremo, se presente)
+            const hasAltar = pyramid.rooms.some(room => room.type === 'altare_supremo');
+            if (hasAltar) {
+                // Trova il livello dell'altare per determinare la rendita PX
+                const altarLevel = pyramid.rooms.find(room => room.type === 'altare_supremo')?.level;
+                if (altarLevel) {
+                    let xpDice; // Num dadi (5 per L5, 6 per L6 etc.)
+                    if (altarLevel >= 9) xpDice = 9; // Assuming M level is 9+
+                    else if (altarLevel === 8) xpDice = 8; // Assuming P level is 8
+                    else xpDice = altarLevel; // 5, 6, 7
+
+                    let xpRoll = xpDice * 3; // Semplificazione d6 -> 3.5 average
+                    let xpFromAltar = xpRoll * 100;
+                    resources.xp += xpFromAltar;
+                    log(`Guadagnati (stimati) ${xpFromAltar.toLocaleString()} P.X. dall'Altare Supremo.`);
+                }
+
+            }
+
+            updateResourceDisplay();
+            log("--- Rendita Mensile Calcolata ---");
+        }
+
+        // --- Event Listeners ---
+        addLevelBtn.addEventListener('click', addLevel);
+        addRoomBtn.addEventListener('click', addRoom);
+        addSlabBtn.addEventListener('click', addSlab);
+        calculateIncomeBtn.addEventListener('click', calculateMonthlyIncome);
+
+        setResourcesBtn.addEventListener('click', () => {
+            resources.gold = parseInt(startGoldInput.value) || 0;
+            resources.xp = parseInt(startXpInput.value) || 0;
+            resources.souls = parseInt(startSoulsInput.value) || 0;
+            // Resetta PP allo stato base quando si impostano le risorse? O li lascia?
+            // pyramid.currentPP = BASE_PP;
+            // pyramid.maxPP = BASE_MAX_PP; // Max PP dipende dalla struttura, non resettarlo qui
+            log("Risorse iniziali impostate.");
+            updateResourceDisplay();
+            // Ricalcola max PP in base alla struttura attuale se necessario
+            updatePyramidDisplay();
+        });
+
+        // --- Inizializzazione ---
+        document.addEventListener('DOMContentLoaded', () => {
+            setResourcesBtn.click(); // Imposta i valori di default all'avvio
+            log("Applicazione caricata. Imposta le risorse iniziali e inizia a costruire.");
+            updatePyramidDisplay(); // Mostra lo stato iniziale
+        });
+
+    </script>
+</body>
+</html>
