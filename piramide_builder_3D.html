@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Costruttore di Piramidi</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            margin: 0;
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+            background-color: #f0f0f0;
+        }
+        #controls {
+            width: 250px;
+            padding: 15px;
+            background-color: #e0e0e0;
+            overflow-y: auto;
+            border-right: 1px solid #ccc;
+        }
+        #controls h2, #info h2 {
+            margin-top: 0;
+            margin-bottom: 10px;
+            border-bottom: 1px solid #ccc;
+            padding-bottom: 5px;
+        }
+         #controls h3 {
+            margin-top: 15px;
+            margin-bottom: 5px;
+         }
+        #viewer {
+            flex-grow: 1;
+            position: relative; /* Needed for absolute positioning of canvas */
+        }
+        #info {
+            width: 280px;
+            padding: 15px;
+            background-color: #e8e8e8;
+            overflow-y: auto;
+            border-left: 1px solid #ccc;
+        }
+        #log {
+            width: 100%;
+            height: 200px;
+            font-size: 0.8em;
+            margin-top: 10px;
+            border: 1px solid #aaa;
+            background-color: #fff;
+            overflow-y: scroll;
+            white-space: pre-wrap;
+            box-sizing: border-box; /* Include padding and border in element's total width and height */
+        }
+        #costs p {
+            margin: 5px 0;
+        }
+        canvas {
+            display: block;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+        button {
+            display: block;
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 8px;
+            background-color: #b0b0b0;
+            border: 1px solid #888;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #c0c0c0;
+        }
+        button:disabled {
+            background-color: #d0d0d0;
+            cursor: not-allowed;
+            color: #888;
+        }
+        label {
+            display: block;
+            margin-bottom: 3px;
+            font-size: 0.9em;
+        }
+        select, input[type="number"] {
+             display: block;
+            width: 100%;
+            padding: 5px;
+            margin-bottom: 8px;
+            box-sizing: border-box; /* Include padding and border */
+        }
+    </style>
+    <!-- Load Three.js and OrbitControls -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://unpkg.com/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+</head>
+<body>
+    <div id="controls">
+        <h2>Controlli Piramide</h2>
+
+        <button id="btnBuildPunta">Costruisci Punta</button>
+
+        <h3>Livelli Blocchi</h3>
+        <button id="btnAddLevel" disabled>Aggiungi Livello Blocchi</button>
+
+        <h3>Stanze Interne</h3>
+         <label for="roomLevelSelect">Livello per Stanza:</label>
+        <select id="roomLevelSelect" disabled></select>
+        <button id="btnAddRoom" disabled>Aggiungi Stanza Generica</button>
+        <p style="font-size: 0.8em;">Costo Stanza: 10k m.o. + 4k p.x.</p>
+
+
+        <h3>Lastre Esterne</h3>
+        <label for="plateSideSelect">Lato da Lastrificare:</label>
+        <select id="plateSideSelect" disabled>
+            <option value="N">Nord (+Z)</option>
+            <option value="S">Sud (-Z)</option>
+            <option value="E">Est (+X)</option>
+            <option value="W">Ovest (-X)</option>
+        </select>
+        <label for="plateLevelSelect">Livello Potere Lastra (1-4):</label>
+        <select id="plateLevelSelect" disabled>
+             <option value="1">Liv 1 (Punta/L2)</option>
+             <option value="2">Liv 2 (L3)</option>
+             <option value="3">Liv 3 (L4)</option>
+             <option value="4">Liv 4 (L5)</option>
+        </select>
+        <button id="btnAddPlating" disabled>Applica Lastra</button>
+         <p style="font-size: 0.8em;">Costo Lastra: Livello * (10k p.x. + 2k Anime)</p>
+
+    </div>
+
+    <div id="viewer">
+        <!-- Three.js canvas will be inserted here by script -->
+    </div>
+
+    <div id="info">
+        <h2>Informazioni</h2>
+        <div id="costs">
+            <p>Livello Piramide: <strong id="currentLevel">0</strong></p>
+            <p>Oro (m.o.): <strong id="totalGold">0</strong></p>
+            <p>Esperienza (p.x.): <strong id="totalXP">0</strong></p>
+            <p>Anime: <strong id="totalSouls">0</strong></p>
+            <p>Stanze per Livello:</p>
+            <ul id="roomInfo" style="font-size: 0.9em; padding-left: 20px;"></ul>
+        </div>
+        <h3>Log Costruzione</h3>
+        <textarea id="log" readonly></textarea>
+    </div>
+
+    <script>
+        // --- Global Variables ---
+        let scene, camera, renderer, controls, pyramidGroup;
+        let currentLevel = 0; // 0 = nothing, 1 = Punta only, 2 = Punta + Level 2 blocks, etc.
+        let totalGold = 0;
+        let totalXP = 0;
+        let totalSouls = 0;
+        let puntaBuilt = false;
+        const blockSize = 1.0; // Visual size of a block
+        const levelHeight = 1.0; // Vertical distance between levels
+
+        // Store block meshes for potential interaction (like plating)
+        // Key: "L<level>_X<i>_Z<j>"
+        const blockMeshes = {};
+        // Store room info: Key = level number, Value = { built: count, capacity: count }
+        const roomData = {};
+        // Store plating info: Key = "Side<side>_Level<powerLevel>", Value = true
+        const platingData = {};
+
+        // Materials
+        const puntaMaterial = new THREE.MeshStandardMaterial({ color: 0xffd700, roughness: 0.4, metalness: 0.6 }); // Gold
+        const blockMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.8, metalness: 0.1 }); // White Marble
+        const platedMaterial = new THREE.MeshStandardMaterial({ color: 0x808080, roughness: 0.5, metalness: 0.9 }); // Grey Metal
+
+        // UI Elements
+        const btnBuildPunta = document.getElementById('btnBuildPunta');
+        const btnAddLevel = document.getElementById('btnAddLevel');
+        const btnAddRoom = document.getElementById('btnAddRoom');
+        const btnAddPlating = document.getElementById('btnAddPlating');
+        const logArea = document.getElementById('log');
+        const currentLevelDisplay = document.getElementById('currentLevel');
+        const totalGoldDisplay = document.getElementById('totalGold');
+        const totalXPDisplay = document.getElementById('totalXP');
+        const totalSoulsDisplay = document.getElementById('totalSouls');
+        const roomLevelSelect = document.getElementById('roomLevelSelect');
+        const plateSideSelect = document.getElementById('plateSideSelect');
+        const plateLevelSelect = document.getElementById('plateLevelSelect');
+        const roomInfoList = document.getElementById('roomInfo');
+
+
+        // --- Initialization ---
+        function initThree() {
+            // Scene
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0xcccccc);
+            scene.fog = new THREE.Fog(0xcccccc, 10, 50);
+
+            // Camera
+            const container = document.getElementById('viewer');
+            camera = new THREE.PerspectiveCamera(60, container.clientWidth / container.clientHeight, 0.1, 100);
+            camera.position.set(5, 5, 10);
+
+            // Renderer
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.shadowMap.enabled = true; // Enable shadows
+            container.appendChild(renderer.domElement);
+
+            // Controls
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.1;
+            controls.target.set(0, 0, 0); // Initial target
+
+            // Lighting
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+            scene.add(ambientLight);
+
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            directionalLight.position.set(5, 10, 7);
+            directionalLight.castShadow = true; // Enable shadow casting
+            // Configure shadow properties (optional, for quality)
+            directionalLight.shadow.mapSize.width = 1024;
+            directionalLight.shadow.mapSize.height = 1024;
+            directionalLight.shadow.camera.near = 0.5;
+            directionalLight.shadow.camera.far = 50;
+            scene.add(directionalLight);
+            scene.add(directionalLight.target); // Add target to scene
+
+            // Ground Plane (optional)
+            const planeGeometry = new THREE.PlaneGeometry(100, 100);
+            const planeMaterial = new THREE.MeshStandardMaterial({ color: 0xaaaaaa, side: THREE.DoubleSide });
+            const groundPlane = new THREE.Mesh(planeGeometry, planeMaterial);
+            groundPlane.rotation.x = -Math.PI / 2;
+            groundPlane.position.y = -levelHeight; // Position slightly below first potential block layer
+            groundPlane.receiveShadow = true; // Allow plane to receive shadows
+            scene.add(groundPlane);
+
+
+            // Pyramid Group
+            pyramidGroup = new THREE.Group();
+            scene.add(pyramidGroup);
+
+            // Resize Listener
+            window.addEventListener('resize', onWindowResize, false);
+
+            // Start Animation Loop
+            animate();
+            updateUIState();
+        }
+
+        // --- Core Logic Functions ---
+
+        function logMessage(message) {
+            logArea.value += message + '\n';
+            logArea.scrollTop = logArea.scrollHeight; // Auto-scroll
+        }
+
+        function updateCostsDisplay() {
+            currentLevelDisplay.textContent = currentLevel;
+            totalGoldDisplay.textContent = totalGold.toLocaleString();
+            totalXPDisplay.textContent = totalXP.toLocaleString();
+            totalSoulsDisplay.textContent = totalSouls.toLocaleString();
+
+            // Update Room Info display
+            roomInfoList.innerHTML = ''; // Clear previous entries
+            for (const level in roomData) {
+                const data = roomData[level];
+                const li = document.createElement('li');
+                li.textContent = `Livello ${level}: ${data.built} / ${data.capacity}`;
+                roomInfoList.appendChild(li);
+            }
+        }
+
+         function updateUIState() {
+            btnBuildPunta.disabled = puntaBuilt;
+            btnAddLevel.disabled = !puntaBuilt;
+
+            // Enable room/plating controls only if levels exist
+            const levelsExist = currentLevel >= 2;
+            btnAddRoom.disabled = !levelsExist;
+            roomLevelSelect.disabled = !levelsExist;
+            btnAddPlating.disabled = !levelsExist;
+            plateSideSelect.disabled = !levelsExist;
+            plateLevelSelect.disabled = !levelsExist;
+
+             // Update room level selector options
+             roomLevelSelect.innerHTML = ''; // Clear existing options
+             if (puntaBuilt) {
+                 for (let i = 2; i <= currentLevel; i++) {
+                     const option = document.createElement('option');
+                     option.value = i;
+                     option.textContent = `Livello ${i}`;
+                     roomLevelSelect.appendChild(option);
+                 }
+             }
+              // Update plating level selector options (limit to existing levels + 1, max 4)
+              plateLevelSelect.innerHTML = '';
+              const maxPlateLevel = Math.min(4, currentLevel -1 ); // Power level K applies to pyramid level K+1
+               if (puntaBuilt && currentLevel >= 2) {
+                   for (let i = 1; i <= maxPlateLevel; i++) {
+                      const pyramidLevelForPlate = i + 1;
+                       // Check if the required pyramid level exists
+                       if(pyramidLevelForPlate <= currentLevel) {
+                           const option = document.createElement('option');
+                           option.value = i; // Power level
+                           option.textContent = `Liv ${i} (Piramide L${pyramidLevelForPlate})`;
+                           plateLevelSelect.appendChild(option);
+                       }
+                   }
+               }
+               // Disable if no valid plating levels can be selected
+               if (plateLevelSelect.options.length === 0) {
+                    btnAddPlating.disabled = true;
+                    plateSideSelect.disabled = true;
+                    plateLevelSelect.disabled = true;
+               }
+
+         }
+
+        function createBlock(level, gridX, gridZ, material) {
+            // Calculate world position based on level and grid coordinates
+            // Level L corresponds to visual layer L, base size L x L
+            // Center of level L base is at y = -(L - 1) * levelHeight
+            const worldY = -(level - 1) * levelHeight;
+
+            // Grid coords (i, j) relate to world coords (x, z)
+            // L=2: 2x2 grid, i,j = +/- 0.5 -> x,z = +/- 0.5 * blockSize
+            // L=3: 3x3 grid, i,j = 0, +/- 1 -> x,z = 0, +/- 1 * blockSize
+            // L=4: 4x4 grid, i,j = +/- 0.5, +/- 1.5 -> x,z = +/- 0.5, +/- 1.5 * blockSize
+            // General: worldX = gridX * blockSize, worldZ = gridZ * blockSize
+            const worldX = gridX * blockSize;
+            const worldZ = gridZ * blockSize;
+
+            const geometry = new THREE.BoxGeometry(blockSize, blockSize, blockSize);
+            const block = new THREE.Mesh(geometry, material);
+            block.position.set(worldX, worldY, worldZ);
+            block.castShadow = true;
+            block.receiveShadow = true; // Blocks can receive shadows from above
+
+             // Store level and grid info for later identification (e.g., plating)
+             block.userData = {
+                 level: level,
+                 gridX: gridX,
+                 gridZ: gridZ,
+                 isPunta: (level === 1),
+                 isPlated: false,
+                 platedSide: null
+             };
+
+            pyramidGroup.add(block);
+             const blockKey = `L${level}_X${gridX}_Z${gridZ}`;
+             blockMeshes[blockKey] = block;
+
+            return block;
+        }
+
+        function buildPunta() {
+            if (puntaBuilt) {
+                logMessage("Errore: La Punta esiste già.");
+                return;
+            }
+
+            const costXP = 20000;
+            const costSouls = 4000;
+
+            totalXP += costXP;
+            totalSouls += costSouls;
+            puntaBuilt = true;
+            currentLevel = 1; // Punta is level 1
+
+            // Visually represent Punta as a single block at the top (Level 1, grid 0,0)
+            createBlock(1, 0, 0, puntaMaterial);
+
+
+            logMessage(`Punta costruita. Costo: ${costXP} p.x., ${costSouls} Anime.`);
+            updateCostsDisplay();
+            updateUIState();
+
+            // Adjust camera target slightly upwards
+             controls.target.set(0, 0, 0);
+        }
+
+        function addPyramidLevel() {
+            if (!puntaBuilt) {
+                logMessage("Errore: Costruisci prima la Punta.");
+                return;
+            }
+
+            const nextLevel = currentLevel + 1;
+            const blocksToAddCount = 4 * (nextLevel - 1); // Rule for cost/PP
+            const costGoldPerBlock = 10000;
+            const costXPPerBlock = 4000;
+
+            const levelCostGold = blocksToAddCount * costGoldPerBlock;
+            const levelCostXP = blocksToAddCount * costXPPerBlock;
+
+            totalGold += levelCostGold;
+            totalXP += levelCostXP;
+
+            // Visually add the full LxL layer for this level
+            const layerSize = nextLevel; // Level L has an L x L base
+            const startCoord = -(layerSize - 1) / 2;
+            const endCoord = (layerSize - 1) / 2;
+
+            for (let i = startCoord; i <= endCoord; i++) {
+                for (let j = startCoord; j <= endCoord; j++) {
+                    createBlock(nextLevel, i, j, blockMaterial);
+                }
+            }
+
+             // Add room capacity for this new level
+             const roomCapacity = Math.pow(nextLevel - 1, 2);
+             roomData[nextLevel] = { built: 0, capacity: roomCapacity };
+
+            currentLevel = nextLevel; // Update current level AFTER adding the blocks
+
+            logMessage(`Livello ${currentLevel} aggiunto (${blocksToAddCount} blocchi per costo). Costo: ${levelCostGold} m.o., ${levelCostXP} p.x.`);
+            updateCostsDisplay();
+            updateUIState();
+
+            // Adjust camera target slightly downwards as pyramid grows
+             const newTargetY = -(currentLevel - 1) * levelHeight / 2;
+             controls.target.set(0, newTargetY, 0);
+             // Adjust ground plane position
+             const groundPlane = scene.children.find(obj => obj.geometry instanceof THREE.PlaneGeometry);
+             if (groundPlane) {
+                 groundPlane.position.y = -(currentLevel -1) * levelHeight - blockSize; // Keep below lowest level
+             }
+        }
+
+        function addGenericRoom() {
+             if (!puntaBuilt || currentLevel < 2) {
+                 logMessage("Errore: Devi avere almeno il Livello 2 per aggiungere stanze.");
+                 return;
+             }
+            const selectedLevel = parseInt(roomLevelSelect.value);
+            if (isNaN(selectedLevel) || !roomData[selectedLevel]) {
+                 logMessage("Errore: Seleziona un livello valido.");
+                 return;
+             }
+
+             if (roomData[selectedLevel].built >= roomData[selectedLevel].capacity) {
+                 logMessage(`Errore: Nessuno spazio per stanze disponibile al Livello ${selectedLevel}.`);
+                 return;
+             }
+
+             const costGold = 10000;
+             const costXP = 4000;
+
+             totalGold += costGold;
+             totalXP += costXP;
+             roomData[selectedLevel].built++;
+
+             logMessage(`Stanza generica aggiunta al Livello ${selectedLevel}. Costo: ${costGold} m.o., ${costXP} p.x.`);
+             updateCostsDisplay();
+             updateUIState(); // Potentially disable add room if capacity reached
+         }
+
+        function applyPlating() {
+             if (!puntaBuilt || currentLevel < 2) {
+                 logMessage("Errore: La piramide non ha livelli sufficienti per le lastre.");
+                 return;
+             }
+
+             const side = plateSideSelect.value;
+             const powerLevel = parseInt(plateLevelSelect.value); // Power Level (1, 2, 3, 4)
+
+             if (isNaN(powerLevel) || powerLevel < 1 || powerLevel > 4) {
+                 logMessage("Errore: Seleziona un Livello Potere Lastra valido (1-4).");
+                 return;
+             }
+
+             const targetPyramidLevel = powerLevel + 1; // Power level K applies to pyramid level K+1
+
+             if (targetPyramidLevel > currentLevel) {
+                 logMessage(`Errore: Il Livello Piramide ${targetPyramidLevel} non esiste ancora (necessario per Lastra Liv ${powerLevel}).`);
+                 return;
+             }
+
+            // Check if this specific side/level is already plated
+            const platingKey = `Side${side}_Level${powerLevel}`;
+            if (platingData[platingKey]) {
+                logMessage(`Errore: Il Lato ${side} è già lastrificato fino al Livello Potere ${powerLevel}.`);
+                return;
+            }
+
+
+             const blocksToPlateCount = powerLevel; // Power Level k requires plating k blocks
+             const costXPPerBlock = 10000;
+             const costSoulsPerBlock = 2000;
+
+             const platingCostXP = blocksToPlateCount * costXPPerBlock;
+             const platingCostSouls = blocksToPlateCount * costSoulsPerBlock;
+
+             // Find the blocks to plate on the specified side and level
+             const layerSize = targetPyramidLevel; // Base size of the target level
+             const coordLimit = (layerSize - 1) / 2;
+             const blocksFound = [];
+
+             for (const key in blockMeshes) {
+                 const block = blockMeshes[key];
+                 if (block.userData.level === targetPyramidLevel && !block.userData.isPunta) {
+                     const gx = block.userData.gridX;
+                     const gz = block.userData.gridZ;
+                     let isOnSide = false;
+
+                     // Use a small tolerance for floating point comparisons if needed,
+                     // but exact comparison should work with our grid setup.
+                     const tolerance = 0.01;
+
+                     if (side === 'N' && Math.abs(gz - coordLimit) < tolerance) isOnSide = true;
+                     else if (side === 'S' && Math.abs(gz - (-coordLimit)) < tolerance) isOnSide = true;
+                     else if (side === 'E' && Math.abs(gx - coordLimit) < tolerance) isOnSide = true;
+                     else if (side === 'W' && Math.abs(gx - (-coordLimit)) < tolerance) isOnSide = true;
+
+                     if (isOnSide) {
+                         blocksFound.push(block);
+                     }
+                 }
+             }
+
+            // Important Check: The rules imply plating k blocks for power level k.
+            // Our calculation of blocks per side on level L is L.
+            // So for power level k, we are plating level L = k+1. The number of blocks on that side is L = k+1.
+            // This contradicts the rule "lastificando i due blocchi di un lato che si trovano al secondo piano [Livello 3], subito sotto la Punta" -> implies power level 2 plates 2 blocks on Level 3.
+            // Let's *strictly* follow the text: power level `k` plates exactly `k` blocks on pyramid level `k+1`.
+            // We need to select the central `k` blocks from the `k+1` blocks available on that side.
+
+            if (blocksFound.length < blocksToPlateCount) {
+                 console.error(`Logic Error: Found ${blocksFound.length} blocks on side ${side} of level ${targetPyramidLevel}, but expected at least ${blocksToPlateCount}.`);
+                 logMessage("Errore interno nel trovare i blocchi corretti.");
+                 return;
+             }
+
+             // Sort blocksFound to easily select the central ones
+             if (side === 'N' || side === 'S') { // Sort by X coordinate
+                 blocksFound.sort((a, b) => a.userData.gridX - b.userData.gridX);
+             } else { // Sort by Z coordinate (E or W)
+                  blocksFound.sort((a, b) => a.userData.gridZ - b.userData.gridZ);
+             }
+
+            // Select the central 'blocksToPlateCount' blocks
+            const startIndex = Math.floor((blocksFound.length - blocksToPlateCount) / 2);
+            const blocksToActuallyPlate = blocksFound.slice(startIndex, startIndex + blocksToPlateCount);
+
+            // Apply cost and visual change
+             totalXP += platingCostXP;
+             totalSouls += platingCostSouls;
+             platingData[platingKey] = true; // Mark as plated
+
+             blocksToActuallyPlate.forEach(block => {
+                 // Only change material if not already plated (e.g. by another side's plating)
+                 // Although the rule implies plating a *side*, let's assume block can only be plated once visually.
+                 if (!block.userData.isPlated) {
+                     block.material = platedMaterial;
+                     block.userData.isPlated = true;
+                     block.userData.platedSide = side; // Optional: track which side plated it
+                 }
+             });
+
+             logMessage(`Lastra Liv ${powerLevel} applicata al Lato ${side} (${blocksToPlateCount} blocchi su Liv ${targetPyramidLevel}). Costo: ${platingCostXP} p.x., ${platingCostSouls} Anime.`);
+             updateCostsDisplay();
+             updateUIState(); // Plating options might change
+         }
+
+
+        // --- Animation & Resize ---
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update(); // Only required if damping or auto-rotation is enabled
+            renderer.render(scene, camera);
+        }
+
+        function onWindowResize() {
+            const container = document.getElementById('viewer');
+            camera.aspect = container.clientWidth / container.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(container.clientWidth, container.clientHeight);
+        }
+
+        // --- Event Listeners ---
+        btnBuildPunta.addEventListener('click', buildPunta);
+        btnAddLevel.addEventListener('click', addPyramidLevel);
+        btnAddRoom.addEventListener('click', addGenericRoom);
+        btnAddPlating.addEventListener('click', applyPlating);
+
+        // --- Start ---
+        initThree();
+
+    </script>
+</body>
+</html>
